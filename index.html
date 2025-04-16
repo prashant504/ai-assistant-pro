@@ -128,7 +128,8 @@
                 return;
             }
             
-            apiKey = apiKeyInput;
+            // Remove any extra spaces or characters that might cause issues
+            apiKey = apiKeyInput.trim();
             localStorage.setItem('openai_api_key', apiKey);
             
             apiKeySection.classList.add('hidden');
@@ -144,6 +145,12 @@
             const message = messageInput.value.trim();
             if (!message) return;
             
+            // Check if API key is valid
+            if (!apiKey || !apiKey.startsWith('sk-')) {
+                addMessage('ai', 'Please enter a valid OpenAI API key. It should start with "sk-"');
+                return;
+            }
+            
             // Add user message to chat
             addMessage('user', message);
             messageInput.value = '';
@@ -158,7 +165,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
+                        'Authorization': `Bearer ${apiKey.trim()}`
                     },
                     body: JSON.stringify({
                         model: "gpt-3.5-turbo",
