@@ -158,6 +158,27 @@
             // Show typing indicator
             showTypingIndicator();
             
+            // Check if demo mode is enabled
+            const useDemoMode = localStorage.getItem('demo_mode') === 'true';
+            
+            if (useDemoMode) {
+                // Wait to simulate thinking
+                await delay(1500);
+                removeTypingIndicator();
+                
+                // Respond with a canned response
+                const demoResponses = [
+                    "I'm a demo version running without an API key. You can use me for testing!",
+                    "This is a demonstration only. To use the full AI features, please provide a valid API key.",
+                    "I'm running in demo mode. If you have an API key, you can use the full AI features.",
+                    "This is an example response in demo mode. The real AI would provide more specific information."
+                ];
+                
+                const randomResponse = demoResponses[Math.floor(Math.random() * demoResponses.length)];
+                addMessage('ai', randomResponse);
+                return;
+            }
+            
             // Maximum retry attempts
             const maxRetries = 2;
             let retries = 0;
@@ -167,20 +188,17 @@
                     console.log('Sending request to OpenAI API...');
                     console.log('Using API key:', apiKey.substring(0, 10) + '...');
                     
-                    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    const response = await fetch('https://api.openai.com/v1/completions', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${apiKey.trim()}`
                         },
                         body: JSON.stringify({
-                            model: "gpt-3.5-turbo",
-                            messages: [
-                                { role: "system", content: "You are a helpful assistant." },
-                                { role: "user", content: message }
-                            ],
-                            temperature: 0.7,
-                            max_tokens: 500 // Limiting token usage to reduce rate limit issues
+                            model: "text-ada-001",
+                            prompt: message,
+                            max_tokens: 150,
+                            temperature: 0.7
                         })
                     });
                     
@@ -208,13 +226,41 @@
                     
                     // Remove typing indicator and add AI response
                     removeTypingIndicator();
-                    addMessage('ai', data.choices[0].message.content);
+                    addMessage('ai', data.choices[0].text.trim());
                     break; // Exit loop on success
                 } catch (error) {
                     if (retries >= maxRetries) {
                         removeTypingIndicator();
                         console.error('Chat error:', error);
-                        addMessage('ai', `Sorry, I encountered an error: ${error.message || 'Unknown error'}. Please check your API key and try again.`);
+                        
+                        // Create message content
+                        let errorMessage = `Sorry, I encountered an error: ${error.message || 'Unknown error'}. Please check your API key and try again.`;
+                        
+                        // Add demo mode suggestion for rate limit errors
+                        if (error.message && error.message.includes('Rate limit')) {
+                            errorMessage += ' You can try demo mode instead.';
+                        }
+                        
+                        addMessage('ai', errorMessage);
+                        
+                        // Add demo mode button for rate limit errors
+                        if (error.message && error.message.includes('Rate limit')) {
+                            const demoButton = document.createElement('button');
+                            demoButton.textContent = 'Enable Demo Mode';
+                            demoButton.className = 'bg-green-500 text-white px-4 py-2 rounded mt-2';
+                            demoButton.addEventListener('click', () => {
+                                localStorage.setItem('demo_mode', 'true');
+                                addMessage('ai', 'Demo mode enabled! The app will now use pre-programmed responses instead of calling the API.');
+                            });
+                            
+                            // Find the last message and append button
+                            const messages = document.querySelectorAll('.ai-message');
+                            if (messages.length > 0) {
+                                const lastMessage = messages[messages.length - 1];
+                                lastMessage.appendChild(document.createElement('br'));
+                                lastMessage.appendChild(demoButton);
+                            }
+                        }
                     } else {
                         retries++;
                         const waitTime = 1000 * retries * 2;
